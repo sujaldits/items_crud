@@ -10,12 +10,13 @@ class Item(Base):
     __tablename__ = "items"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(varchar(255), index=True)
-    description = Column(varchar(255), index=True)
+    name = Column(String(255), index=True)
+    description = Column(String(255), index=True)
     quantity = Column(Integer, index=True)
     price = Column(Float, index=True)
     status = Column(String(50), index=True)
-        
+
+# this is comment
 
 @app.get("/")
 def read_root():
