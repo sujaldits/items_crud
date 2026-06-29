@@ -1,33 +1,50 @@
-from fastapi import FastAPI
-from sqlalchemy import Column, Float, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy import create_engine, Column, Integer, String, Float
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
+# ---------------- DATABASE ----------------
+
+DATABASE_URL = "sqlite:///./items.db"
+
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
+
 app = FastAPI()
+
+# ---------------- MODEL ----------------
 
 class Item(Base):
     __tablename__ = "items"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), index=True)
-    description = Column(String(255), index=True)
-    quantity = Column(Integer, index=True)
-    price = Column(Float, index=True)
-    status = Column(String(50), index=True)
+    name = Column(String(255))
+    description = Column(String(255))
+    quantity = Column(Integer)
+    price = Column(Float)
+    status = Column(String(50))
+    
+# Create the table
+Base.metadata.create_all(bind=engine)
 
-#this is comment
+# ---------------- DATABASE SESSION ----------------
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# ---------------- HOME ----------------
 
 @app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-# ---------------- READ ALL ---------------- 
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str | None = None):
- return {"item_id": item_id, "q": q}
+def home():
+    return {"message": "Welcome to FastAPI CRUD"}
 
 # ---------------- CREATE ----------------
 
@@ -58,6 +75,23 @@ def create_item(
         "data": item
     }
 
+# ---------------- READ ALL ----------------
+
+@app.get("/items")
+def get_all_items(db: Session = Depends(get_db)):
+    return db.query(Item).all()
+
+# ---------------- READ ONE ----------------
+
+@app.get("/items/{item_id}")
+def get_item(item_id: int, db: Session = Depends(get_db)):
+
+    item = db.query(Item).filter(Item.id == item_id).first()
+
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item Not Found")
+
+    return item
 
 # ---------------- UPDATE ----------------
 
@@ -74,7 +108,7 @@ def update_item(
 
     item = db.query(Item).filter(Item.id == item_id).first()
 
-    if not item:
+    if item is None:
         raise HTTPException(status_code=404, detail="Item Not Found")
 
     item.name = name
@@ -98,7 +132,7 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
 
     item = db.query(Item).filter(Item.id == item_id).first()
 
-    if not item:
+    if item is None:
         raise HTTPException(status_code=404, detail="Item Not Found")
 
     db.delete(item)
